@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use crate::archive::{FMemoryArchive, FResourceArchive};
+use crate::archive::{FArchive, FArchiveExt, FMemoryArchive, FResourceArchive};
 use crate::CfxResult;
 
 const MAGIC: u32 = 0x37435352;

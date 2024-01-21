@@ -1,8 +1,42 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use std::fmt::format;
-use std::io::{Cursor, Read, SeekFrom};
+use std::io::{Cursor, Read};
 
 use crate::CfxResult;
+
+pub trait FArchive {
+    fn read_bytes(&mut self, buffer: &mut [u8]) -> CfxResult<usize>;
+    fn set_position(&mut self, pos: u64) -> CfxResult<()>;
+}
+
+pub trait FArchiveExt: FArchive {
+    fn read_uint(&mut self) -> CfxResult<u32>;
+    fn read_int(&mut self) -> CfxResult<i32>;
+}
+
+impl<Archive> FArchiveExt for Archive
+where
+    Archive: FArchive,
+{
+    fn read_uint(&mut self) -> CfxResult<u32> {
+        let mut buffer = [0u8; 4];
+        self.read_bytes(&mut buffer)?;
+
+        let mut reader = Cursor::new(buffer);
+        let result = reader.read_u32::<LittleEndian>()?;
+
+        Ok(result)
+    }
+
+    fn read_int(&mut self) -> CfxResult<i32> {
+        let mut buffer = [0u8; 4];
+        self.read_bytes(&mut buffer)?;
+
+        let mut reader = Cursor::new(buffer);
+        let result = reader.read_i32::<LittleEndian>()?;
+
+        Ok(result)
+    }
+}
 
 pub struct FMemoryArchive<Data>
 where
@@ -22,13 +56,13 @@ where
 
         Self { len, cursor }
     }
+}
 
-    pub fn set_position(&mut self, pos: u64) -> CfxResult<()> {
-        self.cursor.set_position(pos);
-        Ok(())
-    }
-
-    pub fn read_bytes(&mut self, buffer: &mut [u8]) -> CfxResult<usize> {
+impl<Data> FArchive for FMemoryArchive<Data>
+where
+    Data: AsRef<[u8]>,
+{
+    fn read_bytes(&mut self, buffer: &mut [u8]) -> CfxResult<usize> {
         let buffer_len = buffer.len();
         let total_len = self.cursor.position() as usize + buffer_len;
         if total_len > self.len {
@@ -42,32 +76,9 @@ where
         Ok(read)
     }
 
-    pub fn read_uint(&mut self) -> CfxResult<u32> {
-        Ok(self.cursor.read_u32::<LittleEndian>()?)
-    }
-
-    pub fn read_ulong(&mut self) -> CfxResult<u64> {
-        Ok(self.cursor.read_u64::<LittleEndian>()?)
-    }
-
-    pub fn read_int(&mut self) -> CfxResult<i32> {
-        Ok(self.cursor.read_i32::<LittleEndian>()?)
-    }
-
-    pub fn read_float(&mut self) -> CfxResult<f32> {
-        Ok(self.cursor.read_f32::<LittleEndian>()?)
-    }
-
-    pub fn read_bool(&mut self) -> CfxResult<bool> {
-        Ok(self.cursor.read_u8()? != 0)
-    }
-
-    pub fn read_string(&mut self) -> CfxResult<String> {
-        let len = self.read_uint()? as usize;
-        let mut buffer = vec![0u8; len];
-
-        self.read_bytes(&mut buffer)?;
-        Ok(String::from_utf8(buffer)?)
+    fn set_position(&mut self, pos: u64) -> CfxResult<()> {
+        self.cursor.set_position(pos);
+        Ok(())
     }
 }
 
@@ -95,12 +106,19 @@ where
         }
     }
 
-    pub fn set_position(&mut self, pos: u64) -> CfxResult<()> {
-        self.pos = pos;
-        Ok(())
-    }
+    pub fn read_ulong(&mut self) -> CfxResult<u64> {
+        let mut buffer = [0u8; 8];
+        self.read_bytes(&mut buffer)?;
 
-    pub fn read_bytes(&mut self, buffer: &mut [u8]) -> CfxResult<usize> {
+        Ok(u64::from_le_bytes(buffer))
+    }
+}
+
+impl<Data> FArchive for FResourceArchive<Data>
+where
+    Data: AsRef<[u8]>,
+{
+    fn read_bytes(&mut self, buffer: &mut [u8]) -> CfxResult<usize> {
         let mut base_position = 0x0;
         let mut cursor = if (self.pos & VIRTUAL_BASE) == VIRTUAL_BASE {
             base_position = VIRTUAL_BASE;
@@ -119,11 +137,9 @@ where
         Ok(read)
     }
 
-    pub fn read_ulong(&mut self) -> CfxResult<u64> {
-        let mut buffer = [0u8; 8];
-        self.read_bytes(&mut buffer)?;
-
-        Ok(u64::from_le_bytes(buffer))
+    fn set_position(&mut self, pos: u64) -> CfxResult<()> {
+        self.pos = pos;
+        Ok(())
     }
 }
 
