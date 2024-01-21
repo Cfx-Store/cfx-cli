@@ -1,4 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt};
+use std::fmt::format;
 use std::io::{Cursor, Read, SeekFrom};
 
 use crate::CfxResult;
@@ -67,6 +68,62 @@ where
 
         self.read_bytes(&mut buffer)?;
         Ok(String::from_utf8(buffer)?)
+    }
+}
+
+const VIRTUAL_BASE: u64 = 0x50000000;
+const PHYSICAL_BASE: u64 = 0x60000000;
+
+pub struct FResourceArchive<Data>
+where
+    Data: AsRef<[u8]>,
+{
+    virtual_stream: Cursor<Data>,
+    physical_stream: Cursor<Data>,
+    pos: u64,
+}
+
+impl<Data> FResourceArchive<Data>
+where
+    Data: AsRef<[u8]>,
+{
+    pub fn new(virtual_data: Data, physical_data: Data) -> Self {
+        Self {
+            virtual_stream: Cursor::new(virtual_data),
+            physical_stream: Cursor::new(physical_data),
+            pos: 0,
+        }
+    }
+
+    pub fn set_position(&mut self, pos: u64) -> CfxResult<()> {
+        self.pos = pos;
+        Ok(())
+    }
+
+    pub fn read_bytes(&mut self, buffer: &mut [u8]) -> CfxResult<usize> {
+        let mut base_position = 0x0;
+        let mut cursor = if (self.pos & VIRTUAL_BASE) == VIRTUAL_BASE {
+            base_position = VIRTUAL_BASE;
+            &mut self.virtual_stream
+        } else if (self.pos & PHYSICAL_BASE) == PHYSICAL_BASE {
+            base_position = PHYSICAL_BASE;
+            &mut self.physical_stream
+        } else {
+            return Err(format!("Invalid position: {}", self.pos).into());
+        };
+
+        cursor.set_position((self.pos & !base_position));
+        let read = cursor.read(buffer)?;
+        self.pos = self.pos | base_position;
+
+        Ok(read)
+    }
+
+    pub fn read_ulong(&mut self) -> CfxResult<u64> {
+        let mut buffer = [0u8; 8];
+        self.read_bytes(&mut buffer)?;
+
+        Ok(u64::from_le_bytes(buffer))
     }
 }
 

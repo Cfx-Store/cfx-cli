@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-use crate::archive::FMemoryArchive;
+use crate::archive::{FMemoryArchive, FResourceArchive};
 use crate::CfxResult;
 
 const MAGIC: u32 = 0x37435352;
@@ -150,8 +150,8 @@ pub fn handle_unpack_command(filename: &str) -> CfxResult<()> {
     log::info!("Decompressed virtual size: {:?}", virtual_data.len());
     log::info!("Decompressed physical size: {:?}", physical_data.len());
 
-    let mut graphics_archive = FMemoryArchive::new(physical_data);
-    // graphics_archive.set_position(0x50000000)?;
+    let mut graphics_archive = FResourceArchive::new(virtual_data, physical_data);
+    graphics_archive.set_position(0x50000000)?;
 
     let vft = graphics_archive.read_ulong()?;
     let pages_info_pointer = graphics_archive.read_ulong()?;
