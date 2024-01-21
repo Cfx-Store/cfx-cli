@@ -218,3 +218,36 @@ pub fn handle_create_command() -> CfxResult<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn script_section_multiple_test() {
+        let mut builder = ScriptSectionBuilder::new("server");
+        builder.append("@es_extended/imports.lua");
+        builder.append("src/server/main.lua");
+
+        let result = builder.build().unwrap();
+        let expected = r#"server_scripts {
+    "@es_extended/imports.lua",
+    "src/server/main.lua"
+}"#;
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn script_section_single_test() {
+        let mut builder = ScriptSectionBuilder::new("server");
+        builder.append("src/server/main.lua");
+
+        let result = builder.build().unwrap();
+        let expected = r#"server_scripts {
+    "src/server/main.lua"
+}"#;
+
+        assert_eq!(result, expected);
+    }
+}
