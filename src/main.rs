@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+mod archive;
 mod commands;
 
 use crate::commands::create::handle_create_command;
