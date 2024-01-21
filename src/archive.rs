@@ -1,5 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, SeekFrom};
 
 use crate::CfxResult;
 
@@ -22,6 +22,11 @@ where
         Self { len, cursor }
     }
 
+    pub fn set_position(&mut self, pos: u64) -> CfxResult<()> {
+        self.cursor.set_position(pos);
+        Ok(())
+    }
+
     pub fn read_bytes(&mut self, buffer: &mut [u8]) -> CfxResult<usize> {
         let buffer_len = buffer.len();
         let total_len = self.cursor.position() as usize + buffer_len;
@@ -38,6 +43,10 @@ where
 
     pub fn read_uint(&mut self) -> CfxResult<u32> {
         Ok(self.cursor.read_u32::<LittleEndian>()?)
+    }
+
+    pub fn read_ulong(&mut self) -> CfxResult<u64> {
+        Ok(self.cursor.read_u64::<LittleEndian>()?)
     }
 
     pub fn read_int(&mut self) -> CfxResult<i32> {
